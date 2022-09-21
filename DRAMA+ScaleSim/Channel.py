@@ -104,10 +104,17 @@ class Channel:
     """
     def __checkAddressInRange(self,address):
         #print("checkAddressInRage: ",address)
-        for interval in self.addressRange:
-            if interval[0] <= address <= interval[1]:
-                return True
-        return False
+        # ~ for interval in self.addressRange:
+            # ~ if interval[0] <= address <= interval[1]:
+                # ~ return True
+        # ~ return False
+        if self.channelMapping == 0:
+            tmpCh = address >> self.channelMemorySize
+            return tmpCh == self.channelID
+        else:
+            tmpCh = address >> self.busSize
+            tmpCh = tmpCh & ((2**self.numChannels)-1)
+            return tmpCh == self.channelID
 
     """
     addressesInChannel :

@@ -101,7 +101,8 @@ class Bridge:
                 elif self.__allChannelsEmpty():
                     #print("All Channels Empty")
                     clocks = [self.ifmap_context_clock, self.filter_context_clock, self.ofmap_context_clock]
-                    curr_clock = min([clock[0] for clock in clocks if clock[1] != -2]) + self.channel_clock_offset
+                    curr_clock = min([clock[0] for clock in clocks if clock[1] != -2]) + self.channel_clock_offset + self.stall_penalty
+                    #print(clocks,curr_clock,self.channels[0].clock,self.stall_penalty)
                     #self.channel_clock = [curr_clock] * len(self.channel_clock)
                     for id, channel in enumerate(self.channels):
                         if curr_clock > channel.clock:
@@ -116,7 +117,7 @@ class Bridge:
                 for address in req:
                     trace += ", " + str(address)
                 trace += "\n"
-                self.dram_file.write(trace)
+                #self.dram_file.write(trace)
                 self.channel_clock[channel_id] = curr_clock
             self.__loadAllContexts()  # update offset
 
@@ -192,10 +193,12 @@ class Bridge:
                     req.insert(0, last_clock)
                     last_clock = self.channel_clock[c]
                     csv_write.append(req)
+
         csv_write.sort(key=sort_list)
         max_clock = max(self.channel_clock) + 1
         self.channel_clock = [max(self.channel_clock) for c in self.channel_clock]  # sync clocks
         self.channel_clock_offset = max(self.channel_clock)
+
         for channel in self.channels:
             channel.incrementClock(max(self.channel_clock))
         for line in csv_write:
@@ -203,7 +206,7 @@ class Bridge:
             for address in line[1:]:
                 trace += ", " + str(address)
             trace += "\n"
-            self.dram_file.write(trace)
+            #self.dram_file.write(trace)
 
         self.__readContext("ifmap")
         self.__readContext("filter")
@@ -244,6 +247,7 @@ class Bridge:
             context_clock[1] = int(float(line[1]))
         else:
             context_clock[1] = -2
+        #print(type,context_clock,self.channel_clock[0]-self.channel_clock_offset,self.stall_penalty)
 
     """
     sortContext :
@@ -324,15 +328,15 @@ class Bridge:
     """
     def __checkAvailableRequests(self, channel_id, arb):
         if arb == 0 and self.channel_clock[channel_id] >= self.ifmap_context_clock[
-            0] + self.channel_clock_offset - self.stall_penalty and len(self.ifmap_context[channel_id]) > 0 and len(
+            0] + self.channel_clock_offset + self.stall_penalty and len(self.ifmap_context[channel_id]) > 0 and len(
                 self.ifmap_context[channel_id][0]) > 0:
             return True
         if arb == 1 and self.channel_clock[channel_id] >= self.filter_context_clock[
-            0] + self.channel_clock_offset - self.stall_penalty and len(self.filter_context[channel_id]) > 0 and len(
+            0] + self.channel_clock_offset + self.stall_penalty and len(self.filter_context[channel_id]) > 0 and len(
                 self.filter_context[channel_id][0]) > 0:
             return True
         if arb == 2 and self.channel_clock[channel_id] >= self.ofmap_context_clock[
-            0] + self.channel_clock_offset - self.stall_penalty and len(self.ofmap_context[channel_id]) > 0 and len(
+            0] + self.channel_clock_offset + self.stall_penalty and len(self.ofmap_context[channel_id]) > 0 and len(
                 self.ofmap_context[channel_id][0]) > 0:
             return True
         return False
@@ -394,8 +398,8 @@ class Bridge:
         else:
             context_clock = self.ofmap_context_clock
 
-        if context_clock[1] != -2 and curr_clock > context_clock[1] + self.channel_clock_offset:
-            self.stall_penalty += min(curr_clock - self.last_penalty_clock, curr_clock - self.channel_clock_offset - context_clock[1])
+        if context_clock[1] != -2 and curr_clock > context_clock[1] + self.channel_clock_offset + self.stall_penalty:
+            self.stall_penalty += min(curr_clock - self.last_penalty_clock, curr_clock - self.channel_clock_offset - context_clock[1] - self.stall_penalty)
             #self.stall_penalty += max(0, curr_clock - self.channel_clock_offset - max(context_clock[1], self.channel_clock[channel_id] - self.channel_clock_offset))
             #print("Stall Penalty")
             #print(self.stall_penalty,arb,curr_clock, self.channel_clock_offset, context_clock[1], self.last_penalty_clock)
